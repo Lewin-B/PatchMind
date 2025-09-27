@@ -9,6 +9,8 @@ A modern Next.js application with shadcn/ui components, NextAuth.js authenticati
 - 🌙 **Dark Theme**: Beautiful black and light blue color scheme
 - 📱 **Responsive**: Mobile-first design that works on all devices
 - ⚡ **Fast**: Built with Next.js 15 and React 19
+- 🐙 **GitHub Integration**: Real-time repository fetching and analysis
+- 🔍 **Smart Analysis**: Automatic detection of outdated packages and security issues
 
 ## Getting Started
 
@@ -41,6 +43,7 @@ NEXTAUTH_SECRET=your_nextauth_secret_here
    - Go to GitHub Settings > Developer settings > OAuth Apps
    - Create a new OAuth App
    - Set Authorization callback URL to: `http://localhost:3000/api/auth/callback/github`
+   - Enable the following scopes: `repo` (to access private repositories), `read:user`
    - Copy the Client ID and Client Secret to your `.env.local` file
 
 4. Generate a NextAuth secret:

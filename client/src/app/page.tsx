@@ -21,35 +21,17 @@ export default async function Home() {
               <h1 className="text-2xl font-bold text-primary">PatchMind</h1>
             </div>
             <div className="flex items-center space-x-4">
-              {session ? (
-                <div className="flex items-center space-x-4">
-                  <span className="text-sm text-muted-foreground">
-                    Welcome, {session.user?.name}
-                  </span>
-                  <form
-                    action={async () => {
-                      "use server";
-                      await signOut();
-                    }}
-                  >
-                    <Button variant="outline" type="submit">
-                      Sign Out
-                    </Button>
-                  </form>
-                </div>
-              ) : (
-                <form
-                  action={async () => {
-                    "use server";
-                    await signIn("github");
-                  }}
-                >
-                  <Button type="submit" className="flex items-center space-x-2">
-                    <Github className="h-4 w-4" />
-                    <span>Sign in with GitHub</span>
-                  </Button>
-                </form>
-              )}
+              <form
+                action={async () => {
+                  "use server";
+                  await signIn("github");
+                }}
+              >
+                <Button type="submit" className="flex items-center space-x-2">
+                  <Github className="h-4 w-4" />
+                  <span>Sign in with GitHub</span>
+                </Button>
+              </form>
             </div>
           </div>
         </div>
@@ -83,6 +65,27 @@ export default async function Home() {
               <Button variant="outline" size="lg">
                 Learn More
               </Button>
+            </div>
+          )}
+
+          {session && (
+            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <a href="/dashboard">
+                <Button size="lg" className="flex items-center space-x-2">
+                  <Github className="h-5 w-5" />
+                  <span>Go to Dashboard</span>
+                </Button>
+              </a>
+              <form
+                action={async () => {
+                  "use server";
+                  await signOut();
+                }}
+              >
+                <Button variant="outline" size="lg" type="submit">
+                  Sign Out
+                </Button>
+              </form>
             </div>
           )}
         </div>
@@ -139,36 +142,6 @@ export default async function Home() {
             </CardContent>
           </Card>
         </div>
-
-        {/* User Dashboard Preview */}
-        {session && (
-          <div className="mt-20">
-            <Card className="bg-card border-border">
-              <CardHeader>
-                <CardTitle className="text-primary">Your Dashboard</CardTitle>
-                <CardDescription>
-                  Welcome back! Here is what you can do next.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 border border-border rounded-lg">
-                    <h3 className="font-semibold mb-2">Project Updates</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Monitor dependency updates across your repositories
-                    </p>
-                  </div>
-                  <div className="p-4 border border-border rounded-lg">
-                    <h3 className="font-semibold mb-2">Security Alerts</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Review and address any security vulnerabilities
-                    </p>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        )}
       </main>
 
       {/* Footer */}
