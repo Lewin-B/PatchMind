@@ -1,100 +1,61 @@
 from google.adk.agents import Agent
-import os, glob, json, re
+from google.adk.runners import Runner
+from google.adk.sessions import InMemorySessionService
+from google.adk.tools import google_search
+from google.genai import types
 
-# 1) Simple return type: dict
-def scan_repo(repo_path: str = ".") -> dict:
-    """Scan the repo and return workspaces found (JSON-serializable dict)."""
-    workspaces = []
-    for p in glob.glob(os.path.join(repo_path, "**/package.json"), recursive=True):
-        if "node_modules" in p:
-            continue
-        rel = os.path.relpath(os.path.dirname(p), repo_path)
-        workspaces.append("" if rel == "." else rel)
-    # de-dup while preserving order
-    seen, dedup = set(), []
-    for w in workspaces:
-        if w not in seen:
-            seen.add(w); dedup.append(w)
-    if not dedup:
-        dedup = [""]
+APP_NAME = "google_search_agent"
+USER_ID = "user1234"
+SESSION_ID = "1234"
 
-    return {"status": "success", "workspaces": dedup}
-
-# 2) Placeholder RAG that returns a dict
-def retrieve_migration_docs(prev_version: str, next_version: str, top_k: int = 5) -> dict:
-    """Placeholder retrieval; returns a dict with a docs list."""
-    return {
-        "status": "success",
-        "docs": [
-            {
-                "text": f"Example migration note for {prev_version} → {next_version}.",
-                "source": "https://example.com/migration-guide"
-            }
-        ]
-    }
-
-# 3) Synthesis takes ONLY primitives (JSON strings for complex data)
-def synthesize_upgrade_plan(prev_version: str,
-                            next_version: str,
-                            workspaces_json: str,
-                            docs_json: str) -> dict:
-    """
-    Build a plan using simple primitive inputs.
-    - workspaces_json: JSON string of list[str]
-    - docs_json: JSON string of list[{'text': str, 'source': str}]
-    """
-    try:
-        workspaces = json.loads(workspaces_json)
-    except Exception:
-        workspaces = [""]
-
-    try:
-        docs = json.loads(docs_json)
-    except Exception:
-        docs = []
-
-    first_ws = workspaces[0] if workspaces else ""
-
-    return {
-        "status": "success",
-        "plan": {
-            "target_versions": {"next": next_version},
-            "workspaces": workspaces,
-            "rules": [
-                {
-                    "id": "bump-next",
-                    "type": "deps",
-                    "scope": first_ws,
-                    "priority": "high",
-                    "summary": f"Upgrade Next.js from {prev_version} to {next_version}",
-                    "citations": [docs[0]["source"]] if docs else []
-                }
-            ],
-            "gates": {"type_errors": 0, "test_failures": 0, "new_lint_errors": 0}
-        }
-    }
-
-# 4) Orchestrator tool sticks to primitives & dict return
-def build_upgrade_plan(prev_version: str,
-                       next_version: str,
-                       repo_path: str = ".") -> dict:
-    """End-to-end: scan -> (placeholder) retrieve -> synthesize; returns dict plan."""
-    repo = scan_repo(repo_path)
-    if repo.get("status") != "success":
-        return repo
-
-    docs = retrieve_migration_docs(prev_version, next_version)
-    if docs.get("status") != "success":
-        return docs
-
-    workspaces_json = json.dumps(repo["workspaces"])
-    docs_json = json.dumps(docs["docs"])
-    return synthesize_upgrade_plan(prev_version, next_version, workspaces_json, docs_json)
+SYSTEM_INSTRUCTION = (
+    "You are an upgrade planner. You ONLY have the google_search tool. "
+    "Given a repo JSON (workspace -> package.json), you must:\n"
+    "1) Parse dependencies across all workspaces.\n"
+    "2) For each package, run google_search for:\n"
+    "   - '<pkg> latest stable version release notes'\n"
+    "   - '<pkg> migration guide'\n"
+    "   - '<pkg> breaking changes'\n"
+    "3) From search results, extract likely latest STABLE versions and key migration notes. "
+    "   Prefer official sources (framework docs, GitHub releases, vendor blogs). "
+    "4) Output a concise JSON object with:\n"
+    '   {\n'
+    '     "overview": {"package_manager": "...", "packages": [...]},\n'
+    '     "actions": [\n'
+    '       {"package":"...", "current":"...", "target":"^x.y.z"|"latest", "latest_exact":"x.y.z"|null,\n'
+    '        "rationale":"from release notes", "citations":[{"title":"...","link":"..."}]}\n'
+    '     ],\n'
+    '     "instructions": {\n'
+    '       "resolver_agent": {"goal":"verify versions from citations and normalize \'latest\'"},\n'
+    '       "manifest_update_agent": {"goal":"apply ^ ranges & align React/TS majors"},\n'
+    '       "installer_agent": {"goal":"install and refresh lockfile"},\n'
+    '       "codemod_agent": {"goal":"apply breaking-change codemods from cited guides"},\n'
+    '       "build_test_agent": {"goal":"run build/tests and report"}\n'
+    '     }\n'
+    '   }\n'
+    "Rules: keep output tight; do not invent versions without evidence; cite top 3 authoritative links per package."
+)
 
 root_agent = Agent(
-    name="planner_agent",
+    name="basic_search_agent",
     model="gemini-2.0-flash",
-    description="Creates an upgrade plan to go from a previous version to a next version (placeholder RAG).",
-    instruction="Given prev_version and next_version, scan the repo and output a JSON upgrade plan.",
-    tools=[scan_repo, retrieve_migration_docs, synthesize_upgrade_plan, build_upgrade_plan]
+    description="Agent to devise upgrade plans using ONLY Google Search results.",
+    instruction=SYSTEM_INSTRUCTION,
+    tools=[google_search] 
 )
+
+# Optional: quick wiring to run the agent locally via the ADK Runner.
+if __name__ == "__main__":
+    runner = Runner(app_name=APP_NAME, root_agent=root_agent)
+    sessions = InMemorySessionService()
+    session = sessions.get_or_create_session(USER_ID, SESSION_ID)
+
+    # Example prompt (paste your repo JSON as shown):
+    user_msg = types.Content.text(
+        "Plan upgrades for this repo_json (package_manager=pnpm): "
+        '{"": {"dependencies":{"next":"13.4.0","react":"18.2.0"},'
+        '"devDependencies":{"typescript":"4.9.5","eslint":"8.42.0"}}}'
+    )
+
+    result = runner.run(app_name=APP_NAME, user_id=USER_ID, session=session, content=user_msg)
+    print(result.text)
