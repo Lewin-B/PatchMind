@@ -148,7 +148,7 @@ export function UpdateButton({
               Analysis Results
             </CardTitle>
             <CardDescription>
-              Analysis completed for {analysisResult.analysis.repository.name}
+              Analysis completed for {analysisResult.analysis?.repository?.name}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">

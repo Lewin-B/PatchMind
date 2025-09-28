@@ -1,0 +1,6 @@
+{
+  "files": {
+    "pages/index.js": "// TODO: Update to use next/navigation instead of next/router. See https://nextjs.org/docs/app/building-your-application/routing\nimport { useRouter } from 'next/router';",
+    "src/reactApp.js": "// TODO: Migrate to next/image from next/legacy/image. See https://nextjs.org/docs/api-reference/next/image\nimport Image from 'next/legacy/image';"
+  }
+}
